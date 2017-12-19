@@ -73,7 +73,7 @@ for(i=0;i<data.length;i++)
 		
 		});
   //~ ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  
+  var colors1 = d3.scaleOrdinal(d3.schemeCategory20);
   
   
 var width = 900;  // <-- 1
@@ -130,12 +130,12 @@ var y = d3.scaleRadial()
 	var arc = d3.arc()
 		.innerRadius( 0 )
 		.outerRadius( function(d,i) {
-			if(d.amount!=0)
-			{
-				console.log("for "+d.processName)
-				console.log("having "+d.amount)
-			console.log(d.radius+":"+radiusScale(Math.sqrt((d.radius*numWedges)/Math.PI)))
-		}
+			//~ if(d.amount!=0)
+			//~ {
+				//~ console.log("for "+d.processName)
+				//~ console.log("having "+d.amount)
+			//~ console.log(d.radius+":"+radiusScale(Math.sqrt((d.radius*numWedges)/Math.PI)))
+		//~ }
 			return radiusScale(Math.sqrt((d.radius*numWedges)/Math.PI));
 			//~ return radiusScale( d.radius ); 
 			}
@@ -151,7 +151,14 @@ var y = d3.scaleRadial()
 			//~ return previousAngle;
 			 } );
 	
-	
+		var bgCircle=graph.append("circle")
+      .attr("fill", "white")
+      .attr("stroke", "#000")
+      .attr("r",1000)
+      .on("mouseover",function(d,i){	circle.attr("r",0);
+					d3.select('#chartDiv').selectAll("path")
+			  .style("opacity", 1);
+			  div_tooltip.style("display", "none");	});
 	
 			wedgeGroups = graph.selectAll('.wedgeGroup')
 			.data( newdata )
@@ -161,13 +168,15 @@ var y = d3.scaleRadial()
 				})
 		  	.attr('transform', 'scale(0,0)');	
 		
-		
+		var percentageScale = d3.scaleLinear();
 		var previousAmount=0;
 		var currAmount=0;
+		var count=0;
+		var currentMax=new Array();
 		// Create the wedges:
 		wedges = wedgeGroups.selectAll('.wedge')
 		  	.data( function(d,i) {
-				
+				currentMax.push(d3.max(d.values,function(d,i){return d.amount;}));
 			 d.values.sort(function(a,b) { return a.amount-b.amount; } );				 
 				d.values.forEach(function(d,index){
 					d.angle=i;
@@ -194,17 +203,30 @@ var y = d3.scaleRadial()
 		  	  .attr("fill-rule", "evenodd")
 		  	  .style("opacity", 1)
       .attr('stroke', '#fff')
-	  .attr('stroke-width', '1') 
+	  .attr('stroke-width', '3') 
 	  .attr('cursor','crosshair')
-		 .style("fill", function(d,i) {return d3.interpolateYlOrRd(.20+(d.amount/maxValue));  })
+		 .style("fill", function(d,i) {
+					if(i==0)
+					{ 
+					color=colors1(count);
+					percentageScale.domain([0,currentMax[count]])
+									.range(["#ffffff",color])
+					//~ return color.brighter()
+					count++;
+				}
+			return percentageScale(d.amount+50);
+			
+			 //~ return d3.interpolateYlOrRd(.20+(d.amount/maxValue));  
+			 
+			 })
 		.on('mousemove',mousemove)
-		.on('mouseout',mouseout)
+		//~ .on('mouseout',mouseout)
 		.on('mouseover',mouseover);
 		
 		function mouseover(d,i)
 		{
 			d3.select('#chartDiv').selectAll("path")
-			  .style("opacity", 0.20);
+			  .style("opacity", 0.10);
 		  // Then highlight only those that are an ancestor of the current segment.
 		  d3.select(this).style("opacity", 1);	
 		  
@@ -229,6 +251,7 @@ var y = d3.scaleRadial()
 		}
 		function mouseout(d,i)
 		{
+
 			circle.attr("r",0);
 					d3.select('#chartDiv').selectAll("path")
 			  .style("opacity", 1);
@@ -241,8 +264,8 @@ var y = d3.scaleRadial()
       .attr("r",0);
       //~ .attr("r",Math.sqrt((_x*_x)+(_y*_y)));
 		
-		  	wedges.append('svg:title')
-			.text( function(d) { return d.processName + " : "+d.amount});
+		  	//~ wedges.append('svg:title')
+			//~ .text( function(d) { return d.processName + " : "+d.amount});
 		
 
 					// Transition the wedges to view:
@@ -258,7 +281,7 @@ var y = d3.scaleRadial()
 	// Append labels to the wedgeGroups:
 		//~ var numLabels = d3.selectAll('.label-path')[0].length;
 		
-		wedgeGroups.selectAll('.label-path')
+		var labelpaths=wedgeGroups.selectAll('.label-path')
 			.data( function(d,i) { 
 				return [
 					{
@@ -296,8 +319,58 @@ var y = d3.scaleRadial()
 	  			.attr('xlink:href', function(d,i) { 
 	  				return '#label-path' + (d.index );
 	  			})
-	  			.text( function(d) { return d.label; } );
+	  			.text( function(d) { return d.label; } )
+	  			;
 
+			
+				var pathss=wedgeGroups.selectAll('.image-path').append("svg:image")
+					.data( function(d,i) { 
+				console.log(d);
+				return [
+					{
+						'index': i,
+						'angle': i,
+						'radius': d3.max( d.values,function(d,i){return d.radius;} ),
+						'key' :d.key					
+					}
+				];
+			} )
+		  .enter().append('svg:g')
+		  	.attr('class', 'image-path')
+		  	.attr('id', function(d) {
+		  		return 'image-path' + (d.index);
+		  	})
+			.attr('transform', d => {
+				d.radius+=300;
+			const c = arc.centroid(d)
+			const x = c[0] * 2
+			const y = c[1] * 2
+			return `translate(${x}, ${y})`
+		  })
+
+		pathss.append('image')
+			.attr('xlink:href', function(d){return d.key+".png"})
+		  .attr('height', 50)
+		  .attr('width', 50)
+		  .attr("x", function(d) {
+			var bbox = this.parentNode.getBBox();
+			return bbox.x;
+		  })
+		  .attr("y", function() {
+			var bbox = this.parentNode.getBBox();
+			return bbox.y;
+		  });
+					
+		  	//~ pathss.each(function(a){
+				//~ od=this;
+			//~ wedgeGroups.append("svg:image") 
+			//~ .attr("xlink:href",function(d){return d.key+".png"})
+			//~ .attr("height", 50)
+			//~ .attr("width", 50)
+			 //~ .attr("transform", function(d) { console.log(od.getTotalLength());return "translate(10,50)"; })
+				//~ console.log(this.getTotalLength());
+				//~ })
+         
 //--------------------ticks-------------------------------------------------
 
 
